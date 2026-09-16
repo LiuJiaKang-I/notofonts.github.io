@@ -1,9 +1,12 @@
 import json
+import multiprocessing
 import os
 import tempfile
+import time
 from fontTools.ttLib import TTFont
 from fontTools.merge import Merger, Options
 from fontTools.ttLib.scaleUpem import scale_upem
+from fontTools.ttLib.tables.otBase import USE_HARFBUZZ_REPACKER
 from gftools.fix import rename_font
 
 tiers = json.load(open('../fontrepos.json'))
@@ -32,6 +35,69 @@ def normalize_upem(path):
     out = os.path.join(_tmpdir, os.path.basename(path))
     font.save(out)
     return out
+
+
+# Budget for the harfbuzz-assisted save before falling back, in seconds.
+HB_REPACK_BUDGET = int(os.environ.get("MEGAMERGE_HB_BUDGET", "900"))
+
+
+def _save_worker(font, path, use_hb, queue):
+    try:
+        if not use_hb:
+            font.cfg[USE_HARFBUZZ_REPACKER] = False
+        font.save(path)
+        queue.put(None)
+    except BaseException as exc:  # pragma: no cover - reported to the parent
+        queue.put(f"{type(exc).__name__}: {exc}")
+
+
+def save_font(font, path, newname):
+    """Save a merged font, guarding against the GSUB repacker livelock.
+
+    When a merged GSUB table overflows its 16-bit offsets, fontTools tries to
+    resolve it by promoting lookups to Extension type. For lookup type 5
+    (contextual substitution) it has no subtable splitter, so
+    fixLookupOverFlows keeps reporting progress without ever shrinking the
+    table and BaseTTXConverter.compile spins in its `while True` loop forever,
+    logging "Don't know how to split GSUB lookup type 5" until the CI job hits
+    the 6 hour limit.
+
+    Harfbuzz packing is worth keeping when it works, so try it with a time
+    budget and fall back to the pure-fontTools packer, which terminates.
+    """
+    for use_hb, budget, label in (
+        (True, HB_REPACK_BUDGET, "harfbuzz"),
+        (False, None, "fontTools-only"),
+    ):
+        queue = multiprocessing.Queue()
+        proc = multiprocessing.Process(
+            target=_save_worker, args=(font, path, use_hb, queue)
+        )
+        start = time.monotonic()
+        proc.start()
+        proc.join(budget)
+
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+            warnings.append(
+                f"{newname}: harfbuzz packing did not finish within "
+                f"{budget}s (GSUB repacker livelock), retried without it"
+            )
+            continue
+
+        error = queue.get() if not queue.empty() else None
+        if proc.exitcode == 0 and error is None:
+            print(f"  saved {os.path.basename(path)} "
+                  f"using {label} packing in {time.monotonic() - start:.1f}s")
+            return
+        if use_hb:
+            warnings.append(
+                f"{newname}: harfbuzz packing failed ({error or proc.exitcode}), "
+                f"retried without it"
+            )
+            continue
+        raise RuntimeError(f"Failed to save {path}: {error or proc.exitcode}")
 
 
 def megamerge(newname, base_font, tier_predicate, banned, modulation):
@@ -75,7 +141,7 @@ def megamerge(newname, base_font, tier_predicate, banned, modulation):
     merger = Merger(options=Options(drop_tables=["vmtx", "vhea", "MATH"]))
     merged = merger.merge(mergelist)
     rename_font(merged, newname)
-    merged.save(newname.replace(" ","")+"-Regular.ttf")
+    save_font(merged, newname.replace(" ","")+"-Regular.ttf", newname)
 
 
 for modulation in ["Sans", "Serif"]:

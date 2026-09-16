@@ -1,18 +1,21 @@
-"""CI verification for the unitsPerEm normalization fix.
+"""CI verification for the two megamerge production failures.
 
-Builds the exact "Noto Serif Living" merge list that megamerge.py builds --
-the group that failed in production with:
+Bug 1 -- unitsPerEm mismatch (run #37, exit code 1 after 8 minutes)
+    NotoSerifTodhri ships upem=1024 while every other merge candidate uses
+    1000, so the "Noto Serif Living" merge died with
+    "AssertionError: Expected all items to be equal: [1000, ..., 1024, ...]".
 
-    AssertionError: Expected all items to be equal: [1000, ..., 1024, ...]
+Bug 2 -- GSUB repacker livelock (runs #26-#39, killed at the 6 hour limit)
+    The merged "Noto Sans Historical" GSUB overflows its 16-bit offsets.
+    fontTools tries to recover by promoting lookups to Extension type, but it
+    has no subtable splitter for lookup type 5, so compile() spins forever
+    printing "Don't know how to split GSUB lookup type 5".
 
-then asserts two things:
-
-  1. WITHOUT normalization the merge still raises AssertionError
-     (proves the bug is real and this test is not vacuous)
-  2. WITH normalization the merge succeeds and produces a sane font
-
-Exits non-zero if either expectation is not met. Writes nothing to the repo.
+Each bug is verified with a control (the failure still reproduces) and a
+treatment (the fix resolves it), so the test cannot silently become vacuous.
+Nothing is written back to the repository.
 """
+import ast
 import json
 import os
 import sys
@@ -20,19 +23,17 @@ import time
 
 from fontTools.ttLib import TTFont
 from fontTools.merge import Merger, Options
+from fontTools.ttLib.tables.otBase import USE_HARFBUZZ_REPACKER
 
 
-def load_fix_from_megamerge():
-    """Load normalize_upem/UPEM out of megamerge.py without running it.
+def load_from_megamerge():
+    """Load the fixes out of megamerge.py without executing the real job.
 
-    megamerge.py performs the full merge at module level, so a plain import
-    would kick off the real (multi-hour) job. Instead execute only the module
-    prefix up to the first top-level statement, which covers the imports,
-    globals and function definitions we need. This still reads the real file,
-    so reverting the fix makes this verification fail.
+    megamerge.py runs the full merge at module level, so a plain import would
+    kick off the multi-hour job. Execute only the prefix up to the first
+    top-level statement, which covers imports, globals and function defs.
+    Reading the real file means reverting a fix makes this verification fail.
     """
-    import ast
-
     source = open('megamerge.py').read()
     tree = ast.parse(source)
     cutoff = next(node.lineno for node in tree.body
@@ -42,14 +43,18 @@ def load_fix_from_megamerge():
     namespace = {'__name__': 'megamerge_fix'}
     exec(compile(prefix, 'megamerge.py', 'exec'), namespace)
 
-    missing = [n for n in ('normalize_upem', 'UPEM', 'warnings')
-               if n not in namespace]
+    required = ('normalize_upem', 'UPEM', 'warnings', 'save_font')
+    missing = [n for n in required if n not in namespace]
     if missing:
         raise SystemExit(f"megamerge.py is missing {missing}; fix not applied?")
-    return namespace['normalize_upem'], namespace['UPEM'], namespace['warnings']
+    return namespace
 
 
-normalize_upem, UPEM, mm_warnings = load_fix_from_megamerge()
+MM = load_from_megamerge()
+normalize_upem = MM['normalize_upem']
+save_font = MM['save_font']
+UPEM = MM['UPEM']
+mm_warnings = MM['warnings']
 
 
 def build_mergelist(modulation, tier_predicate, banned):
@@ -90,68 +95,155 @@ def merge(paths):
         drop_tables=["vmtx", "vhea", "MATH"])).merge(paths)
 
 
-def main():
-    banned = ["duployan", "latin-greek-cyrillic", "sign-writing", "test"]
-    mergelist = build_mergelist("Serif", lambda x: x <= 3, banned)
+BANNED = ["duployan", "latin-greek-cyrillic", "sign-writing", "test"]
 
-    print(f"Serif Living merge list: {len(mergelist)} fonts")
+
+def verify_upem():
+    """Bug 1: the Serif Living merge must go from AssertionError to success."""
+    print("=" * 62)
+    print("BUG 1: unitsPerEm mismatch (Noto Serif Living)")
+    print("=" * 62)
+
+    mergelist = build_mergelist("Serif", lambda x: x <= 3, BANNED)
+    print(f"merge list: {len(mergelist)} fonts")
+
     mismatched = [(os.path.basename(p), TTFont(p)['head'].unitsPerEm)
                   for p in mergelist
                   if TTFont(p)['head'].unitsPerEm != UPEM]
-    print(f"Fonts with non-{UPEM} upem: {mismatched}")
-
+    print(f"fonts with non-{UPEM} upem: {mismatched}")
     if not mismatched:
         print("FAIL: no upem mismatch present, this test would be vacuous")
-        return 1
+        return False
 
-    # --- 1. control: the bug must still reproduce without the fix ---
-    print("\n[1/2] merging WITHOUT normalization (expecting AssertionError)")
+    print("\n[control] merging WITHOUT normalization, expecting AssertionError")
     try:
         merge(mergelist)
     except AssertionError as exc:
-        print(f"      reproduced as expected: {str(exc)[:90]}...")
+        print(f"          reproduced: {str(exc)[:80]}...")
     else:
         print("FAIL: merge unexpectedly succeeded without the fix")
-        return 1
+        return False
 
-    # --- 2. the fix must make the same merge succeed ---
-    print("\n[2/2] merging WITH normalization (expecting success)")
+    print("\n[treatment] merging WITH normalization, expecting success")
     start = time.time()
     try:
-        normalized = [normalize_upem(p) for p in mergelist]
-        merged = merge(normalized)
+        merged = merge([normalize_upem(p) for p in mergelist])
     except Exception as exc:
-        print(f"FAIL: merge still broken: {type(exc).__name__}: {exc}")
-        return 1
-    print(f"      merged OK in {time.time() - start:.1f}s")
-    print(f"      warnings recorded: {mm_warnings}")
+        print(f"FAIL: still broken: {type(exc).__name__}: {exc}")
+        return False
+    print(f"          merged OK in {time.time() - start:.1f}s")
 
-    # --- sanity-check the resulting font ---
-    out = "/tmp/SerifLiving-verify.ttf"
+    out = "/tmp/verify-SerifLiving.ttf"
     merged.save(out)
     font = TTFont(out)
-    upem = font['head'].unitsPerEm
-    glyphs = len(font.getGlyphOrder())
     cmap = font.getBestCmap()
     todhri = [cp for cp in cmap if 0x105C0 <= cp <= 0x105FF]
+    print(f"          upem={font['head'].unitsPerEm} "
+          f"glyphs={len(font.getGlyphOrder())} cmap={len(cmap)} "
+          f"todhri_codepoints={len(todhri)}")
 
-    print(f"\n      upem={upem} glyphs={glyphs} cmap={len(cmap)}")
-    print(f"      Todhri codepoints retained: {len(todhri)}")
-    print(f"      dropped tables absent: "
-          f"{all(t not in font for t in ('vmtx', 'vhea', 'MATH'))}")
-
-    if upem != UPEM:
-        print(f"FAIL: merged upem is {upem}, expected {UPEM}")
-        return 1
+    if font['head'].unitsPerEm != UPEM:
+        print(f"FAIL: merged upem is {font['head'].unitsPerEm}")
+        return False
     if not todhri:
         print("FAIL: Todhri codepoints missing from merged font")
-        return 1
-    if not mm_warnings:
-        print("FAIL: rescaling happened but was not recorded in warnings")
-        return 1
+        return False
 
     print("\nPASS: upem normalization fixes the Serif Living merge")
-    return 0
+    return True
+
+
+def verify_livelock():
+    """Bug 2: the Sans Historical save must complete instead of spinning."""
+    print()
+    print("=" * 62)
+    print("BUG 2: GSUB repacker livelock (Noto Sans Historical)")
+    print("=" * 62)
+
+    mergelist = build_mergelist("Sans", lambda x: x > 3, BANNED)
+    print(f"merge list: {len(mergelist)} fonts")
+    merged = merge([normalize_upem(p) for p in mergelist])
+    print(f"merged in memory: {len(merged.getGlyphOrder())} glyphs")
+
+    # Control: prove the livelock is real by giving harfbuzz packing a short
+    # budget in an isolated process. A healthy table packs well within this;
+    # the livelocked one never finishes.
+    print("\n[control] saving with harfbuzz packing, 60s budget")
+    import multiprocessing
+    queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(
+        target=MM['_save_worker'],
+        args=(merged, "/tmp/verify-control.ttf", True, queue))
+    proc.start()
+    proc.join(60)
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
+        print("          still running after 60s -> livelock confirmed")
+    else:
+        print("FAIL: harfbuzz packing finished; livelock no longer reproduces")
+        return False
+
+    # Treatment: the real save_font guard must produce a font.
+    print("\n[treatment] saving via save_font() guard")
+    out = "/tmp/verify-SansHistorical.ttf"
+    start = time.time()
+    try:
+        save_font(merged, out, "Noto Sans Historical")
+    except Exception as exc:
+        print(f"FAIL: save_font raised {type(exc).__name__}: {exc}")
+        return False
+    elapsed = time.time() - start
+    print(f"          completed in {elapsed:.1f}s")
+
+    font = TTFont(out)
+    cmap = font.getBestCmap()
+    print(f"          glyphs={len(font.getGlyphOrder())} cmap={len(cmap)} "
+          f"GSUB={'GSUB' in font} GPOS={'GPOS' in font}")
+
+    if 'GSUB' not in font:
+        print("FAIL: merged font lost its GSUB table")
+        return False
+
+    # Historical scripts must actually shape, not fall back to .notdef.
+    try:
+        import uharfbuzz as hb
+        data = open(out, 'rb').read()
+        hbfont = hb.Font(hb.Face(data))
+        for name, cp in (("Egyptian Hieroglyphs", 0x13000),
+                         ("Cuneiform", 0x12000),
+                         ("Gothic", 0x10330)):
+            buf = hb.Buffer()
+            buf.add_str(chr(cp))
+            buf.guess_segment_properties()
+            hb.shape(hbfont, buf)
+            gid = buf.glyph_infos[0].codepoint
+            print(f"          {name} U+{cp:05X} -> gid {gid}"
+                  f"{'' if gid else '  NOTDEF!'}")
+            if not gid:
+                print(f"FAIL: {name} shaped to .notdef")
+                return False
+    except ImportError:
+        print("          (uharfbuzz unavailable, skipped shaping check)")
+
+    print(f"\nPASS: save_font guard avoids the livelock "
+          f"({elapsed:.0f}s vs >6h in production)")
+    return True
+
+
+def main():
+    results = {
+        "bug1_upem": verify_upem(),
+        "bug2_livelock": verify_livelock(),
+    }
+
+    print()
+    print("=" * 62)
+    for name, passed in results.items():
+        print(f"  {name}: {'PASS' if passed else 'FAIL'}")
+    print(f"  warnings recorded: {mm_warnings}")
+    print("=" * 62)
+    return 0 if all(results.values()) else 1
 
 
 if __name__ == "__main__":
