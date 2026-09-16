@@ -1,12 +1,38 @@
 import json
 import os
+import tempfile
 from fontTools.ttLib import TTFont
 from fontTools.merge import Merger, Options
+from fontTools.ttLib.scaleUpem import scale_upem
 from gftools.fix import rename_font
 
 tiers = json.load(open('../fontrepos.json'))
 state = json.load(open('../state.json'))
 warnings = []
+
+UPEM = 1000
+_tmpdir = tempfile.mkdtemp(prefix="megamerge-upem-")
+
+
+def normalize_upem(path):
+    """Rescale a font to the common UPEM so fontTools' merger can combine it.
+
+    fontTools requires head.unitsPerEm to be identical across all merged fonts
+    and raises AssertionError otherwise. Returns a path to a normalized copy,
+    or the original path when no rescaling is needed.
+    """
+    font = TTFont(path)
+    if font['head'].unitsPerEm == UPEM:
+        return path
+    warnings.append(
+        f"Rescaled {os.path.basename(path)} from "
+        f"{font['head'].unitsPerEm} to {UPEM} upem before merging"
+    )
+    scale_upem(font, UPEM)
+    out = os.path.join(_tmpdir, os.path.basename(path))
+    font.save(out)
+    return out
+
 
 def megamerge(newname, base_font, tier_predicate, banned, modulation):
     glyph_count = len(TTFont(base_font).getGlyphOrder())
@@ -45,6 +71,7 @@ def megamerge(newname, base_font, tier_predicate, banned, modulation):
     print("Merging: ")
     for x in mergelist:
         print("  "+os.path.basename(x))
+    mergelist = [normalize_upem(x) for x in mergelist]
     merger = Merger(options=Options(drop_tables=["vmtx", "vhea", "MATH"]))
     merged = merger.merge(mergelist)
     rename_font(merged, newname)
