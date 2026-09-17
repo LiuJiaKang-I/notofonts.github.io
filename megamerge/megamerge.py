@@ -45,11 +45,10 @@ MERGE_OPTIONS = Options(drop_tables=["vmtx", "vhea", "MATH"])
 
 
 def _save_worker(mergelist, path, newname, use_hb, queue):
-    """Merge and save from scratch inside a child process.
+    """Merge and save in a child process, so a hung save can be terminated.
 
-    Re-doing the merge here (rather than passing a merged font in) is the
-    point of this function: it guarantees a pristine writer tree, so the
-    fontTools-only attempt never inherits state left behind by harfbuzz.
+    Merging here rather than accepting a merged font is deliberate: it keeps
+    the writer tree pristine for each attempt.
     """
     try:
         font = Merger(options=MERGE_OPTIONS).merge(mergelist)
@@ -63,28 +62,11 @@ def _save_worker(mergelist, path, newname, use_hb, queue):
 
 
 def save_font(mergelist, path, newname):
-    """Merge and save, working around the GSUB offset-overflow livelock.
+    """Merge and save, retrying without the harfbuzz repacker if it fails.
 
-    A merged GSUB overflows its uint16 offsets, and the two packers fail on
-    different groups, so neither can be chosen statically:
-
-        Sans Living (84 fonts)     harfbuzz ok      pure fontTools livelocks
-        Sans Historical (61 fonts) harfbuzz fails   pure fontTools ok
-
-    What makes the harfbuzz failure fatal is not the packer itself but the
-    state it leaves behind. getAllDataUsingHarfbuzz() first calls
-    _doneWriting(shareExtension=True), which dedups aggressively across
-    Extension boundaries; when hb.repack then raises RepackerError,
-    tryPackingHarfbuzz falls back to getAllData(remove_duplicate=False) --
-    correctly, since _doneWriting must not run twice -- and the pure-python
-    serializer is handed a graph laid out for a packer that just gave up.
-    Measured on Sans Historical, GSUB: the conservative layout converges in
-    95 overflow-resolution rounds, while the harfbuzz layout exhausts every
-    resolution available to it after 219 rounds without ever packing.
-
-    So on failure we discard everything and re-merge from scratch with the
-    repacker disabled, which recompiles under the conservative dedup policy
-    the pure-python serializer expects.
+    Neither packer works on every group, so on failure discard the attempt
+    and re-merge from scratch: a fresh writer tree is what makes the retry
+    succeed, not the change of packer. See git log for the analysis.
     """
     for use_hb, label in ((True, "harfbuzz"), (False, "fontTools-only")):
         queue = multiprocessing.Queue()
