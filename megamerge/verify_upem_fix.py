@@ -182,7 +182,13 @@ def verify_dedup_mechanism():
     print(f"Sans Historical GSUB: "
           f"{len(table.table.LookupList.Lookup)} lookups")
 
-    def attempt(share_extension, budget=150):
+    # The conservative arm needs ~70s locally; CI runners measured ~1.7x
+    # slower on this same workload, so leave generous headroom. The
+    # aggressive arm never converges, so a larger budget costs nothing but
+    # makes a timeout here unambiguous.
+    budget = int(os.environ.get("MEGAMERGE_CONTROL_BUDGET", "420"))
+
+    def attempt(share_extension, budget=budget):
         rounds = [0]
         result = [None]
         original = otTables.fixLookupOverFlows
@@ -231,7 +237,13 @@ def verify_dedup_mechanism():
           f"[{rounds_aggressive} overflow rounds]")
 
     if conservative[0] != "converged":
-        print("\nFAIL: conservative dedup should converge")
+        print(f"\nFAIL: conservative dedup should converge but reported "
+              f"'{conservative[0]}'.")
+        if conservative[0] == "still spinning":
+            print(f"      It converged in ~95 rounds when this was written; "
+                  f"it reached {rounds_conservative} here.")
+            print(f"      If the machine is simply slower, raise "
+                  f"MEGAMERGE_CONTROL_BUDGET (currently {budget}s).")
         return False
     if aggressive[0] == "converged":
         print("\nFAIL: aggressive dedup converged; "
