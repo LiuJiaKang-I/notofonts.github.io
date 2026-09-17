@@ -2,10 +2,17 @@ name: Megamerge
 on:
   schedule:
     - cron: '12 3 1 * *'
+  # Allow running this by hand, so a fix can be verified without waiting for
+  # the monthly schedule.
+  workflow_dispatch:
 
 jobs:
   megamerge:
     runs-on: ubuntu-latest
+    # Runs #26-#39 each burned the full 6 hour limit on a packing livelock and
+    # reported "cancelled" rather than "failure", which is easy to mistake for
+    # someone cancelling the job. Fail fast and visibly instead.
+    timeout-minutes: 90
     permissions:
         contents: write
     steps:
@@ -20,8 +27,10 @@ jobs:
         uses: notofonts/install-harfbuzz-action@main
       - name: Install dependencies
         run: pip install fontTools gftools uharfbuzz
+      - name: Show dependency versions
+        run: pip list | grep -Ei "fonttools|gftools|uharfbuzz"
       - name: Merge the fonts
-        run: cd megamerge; python3 megamerge.py
+        run: cd megamerge; python3 -u megamerge.py
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - uses: stefanzweifel/git-auto-commit-action@v7
