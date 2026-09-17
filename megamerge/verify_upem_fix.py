@@ -153,88 +153,175 @@ def verify_upem():
     return True
 
 
-def verify_livelock():
-    """Bug 2: the Sans Historical save must complete instead of spinning."""
+def verify_dedup_mechanism():
+    """Bug 2, root cause: the dedup policy is the variable, not the packer.
+
+    Compile the same merged GSUB twice with the *same* pure-python
+    serializer, changing only what _doneWriting() was told:
+
+      shareExtension=False  the conservative policy that serializer expects
+      shareExtension=True   what getAllDataUsingHarfbuzz() leaves behind
+
+    If the first converges and the second does not, the hang cannot be
+    blamed on the packer -- it is the graph it was handed.
+    """
+    import threading
+    from fontTools.ttLib.tables.otBase import (
+        OTTableWriter, OTLOffsetOverflowError)
+    from fontTools.ttLib.tables import otTables
+
     print()
     print("=" * 62)
-    print("BUG 2: GSUB repacker livelock (Noto Sans Historical)")
+    print("BUG 2 root cause: dedup policy decides convergence")
     print("=" * 62)
 
-    mergelist = build_mergelist("Sans", lambda x: x > 3, BANNED)
-    print(f"merge list: {len(mergelist)} fonts")
-    merged = merge([normalize_upem(p) for p in mergelist])
-    print(f"merged in memory: {len(merged.getGlyphOrder())} glyphs")
+    mergelist = [normalize_upem(p)
+                 for p in build_mergelist("Sans", lambda x: x > 3, BANNED)]
+    font = merge(mergelist)
+    table = font["GSUB"]
+    print(f"Sans Historical GSUB: "
+          f"{len(table.table.LookupList.Lookup)} lookups")
 
-    # Control: prove the livelock is real by giving harfbuzz packing a short
-    # budget in an isolated process. A healthy table packs well within this;
-    # the livelocked one never finishes.
-    print("\n[control] saving with harfbuzz packing, 60s budget")
-    import multiprocessing
-    queue = multiprocessing.Queue()
-    proc = multiprocessing.Process(
-        target=MM['_save_worker'],
-        args=(merged, "/tmp/verify-control.ttf", True, queue))
-    proc.start()
-    proc.join(60)
-    if proc.is_alive():
-        proc.terminate()
-        proc.join()
-        print("          still running after 60s -> livelock confirmed")
-    else:
-        print("FAIL: harfbuzz packing finished; livelock no longer reproduces")
+    def attempt(share_extension, budget=150):
+        rounds = [0]
+        result = [None]
+        original = otTables.fixLookupOverFlows
+
+        def counted(ttf, record, _orig=original):
+            rounds[0] += 1
+            return _orig(ttf, record)
+
+        otTables.fixLookupOverFlows = counted
+
+        def run():
+            last = None
+            try:
+                while True:
+                    writer = OTTableWriter(tableTag="GSUB")
+                    table.table.compile(writer, font)
+                    try:
+                        writer._doneWriting({}, shareExtension=share_extension)
+                        result[0] = ("converged",
+                                     len(writer.getAllData(
+                                         remove_duplicate=False)))
+                        return
+                    except OTLOffsetOverflowError as exc:
+                        ok = table.tryResolveOverflow(font, exc, last)
+                        last = exc.value
+                        if not ok:
+                            result[0] = ("gave up", rounds[0])
+                            return
+            except BaseException as exc:
+                result[0] = (type(exc).__name__, str(exc)[:40])
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        thread.join(budget)
+        otTables.fixLookupOverFlows = original
+        return result[0] or ("still spinning", f">{budget}s"), rounds[0]
+
+    conservative, rounds_conservative = attempt(False)
+    aggressive, rounds_aggressive = attempt(True)
+
+    print(f"\n  shareExtension=False (conservative, what pure-FT expects)")
+    print(f"      -> {conservative[0]}, {conservative[1]} "
+          f"[{rounds_conservative} overflow rounds]")
+    print(f"  shareExtension=True  (what harfbuzz leaves behind)")
+    print(f"      -> {aggressive[0]}, {aggressive[1]} "
+          f"[{rounds_aggressive} overflow rounds]")
+
+    if conservative[0] != "converged":
+        print("\nFAIL: conservative dedup should converge")
+        return False
+    if aggressive[0] == "converged":
+        print("\nFAIL: aggressive dedup converged; "
+              "the root cause no longer reproduces")
         return False
 
-    # Treatment: the real save_font guard must produce a font.
-    print("\n[treatment] saving via save_font() guard")
-    out = "/tmp/verify-SansHistorical.ttf"
-    start = time.time()
-    try:
-        save_font(merged, out, "Noto Sans Historical")
-    except Exception as exc:
-        print(f"FAIL: save_font raised {type(exc).__name__}: {exc}")
-        return False
-    elapsed = time.time() - start
-    print(f"          completed in {elapsed:.1f}s")
+    print("\nPASS: same packer, same font -- only the dedup policy differs,")
+    print("      so recompiling from scratch (not reusing hb's graph) is the fix")
+    return True
 
-    font = TTFont(out)
-    cmap = font.getBestCmap()
-    print(f"          glyphs={len(font.getGlyphOrder())} cmap={len(cmap)} "
-          f"GSUB={'GSUB' in font} GPOS={'GPOS' in font}")
 
-    if 'GSUB' not in font:
-        print("FAIL: merged font lost its GSUB table")
-        return False
+def verify_all_groups():
+    """Bug 2, the fix: every group must produce a font, none may hang."""
+    print()
+    print("=" * 62)
+    print("BUG 2 fix: all four merge groups via save_font()")
+    print("=" * 62)
 
-    # Historical scripts must actually shape, not fall back to .notdef.
-    try:
-        import uharfbuzz as hb
-        data = open(out, 'rb').read()
-        hbfont = hb.Font(hb.Face(data))
-        for name, cp in (("Egyptian Hieroglyphs", 0x13000),
-                         ("Cuneiform", 0x12000),
-                         ("Gothic", 0x10330)):
-            buf = hb.Buffer()
-            buf.add_str(chr(cp))
-            buf.guess_segment_properties()
-            hb.shape(hbfont, buf)
-            gid = buf.glyph_infos[0].codepoint
-            print(f"          {name} U+{cp:05X} -> gid {gid}"
-                  f"{'' if gid else '  NOTDEF!'}")
-            if not gid:
-                print(f"FAIL: {name} shaped to .notdef")
-                return False
-    except ImportError:
-        print("          (uharfbuzz unavailable, skipped shaping check)")
+    groups = (
+        ("Sans", "Living", lambda x: x <= 3),
+        ("Sans", "Historical", lambda x: x > 3),
+        ("Serif", "Living", lambda x: x <= 3),
+        ("Serif", "Historical", lambda x: x > 3),
+    )
+    checks = {
+        "Sans Historical": (("Egyptian Hieroglyphs", 0x13000),
+                            ("Cuneiform", 0x12000),
+                            ("Gothic", 0x10330)),
+        "Serif Living": (("Todhri", 0x105C1),),
+    }
 
-    print(f"\nPASS: save_font guard avoids the livelock "
-          f"({elapsed:.0f}s vs >6h in production)")
+    for modulation, label, predicate in groups:
+        name = f"{modulation} {label}"
+        mergelist = [normalize_upem(p)
+                     for p in build_mergelist(modulation, predicate, BANNED)]
+        out = f"/tmp/verify-{modulation}{label}.ttf"
+        print(f"\n  {name} ({len(mergelist)} fonts)")
+        start = time.time()
+        try:
+            save_font(mergelist, out, f"Noto {modulation} {label}")
+        except Exception as exc:
+            print(f"  FAIL: {type(exc).__name__}: {exc}")
+            return False
+        elapsed = time.time() - start
+
+        font = TTFont(out)
+        cmap = font.getBestCmap()
+        print(f"      total {elapsed:.1f}s | glyphs={len(font.getGlyphOrder())} "
+              f"cmap={len(cmap)} GSUB={'GSUB' in font} GPOS={'GPOS' in font}")
+
+        if 'GSUB' not in font:
+            print(f"  FAIL: {name} lost its GSUB table")
+            return False
+
+        # The merged font must be re-readable, not just written.
+        import io
+        buffer = io.BytesIO()
+        font.save(buffer)
+        buffer.seek(0)
+        if len(TTFont(buffer).getGlyphOrder()) != len(font.getGlyphOrder()):
+            print(f"  FAIL: {name} does not survive a recompile round-trip")
+            return False
+
+        # Scripts unique to this group must shape, not hit .notdef.
+        try:
+            import uharfbuzz as hb
+            hbfont = hb.Font(hb.Face(open(out, 'rb').read()))
+            for script, codepoint in checks.get(name, ()):
+                buf = hb.Buffer()
+                buf.add_str(chr(codepoint))
+                buf.guess_segment_properties()
+                hb.shape(hbfont, buf)
+                gid = buf.glyph_infos[0].codepoint
+                print(f"      {script} U+{codepoint:05X} -> gid {gid}"
+                      f"{'' if gid else '  NOTDEF!'}")
+                if not gid:
+                    print(f"  FAIL: {script} shaped to .notdef")
+                    return False
+        except ImportError:
+            print("      (uharfbuzz unavailable, skipped shaping check)")
+
+    print("\nPASS: all four groups produced a usable font")
     return True
 
 
 def main():
     results = {
         "bug1_upem": verify_upem(),
-        "bug2_livelock": verify_livelock(),
+        "bug2_root_cause": verify_dedup_mechanism(),
+        "bug2_all_groups": verify_all_groups(),
     }
 
     print()
