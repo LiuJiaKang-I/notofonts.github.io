@@ -79,8 +79,8 @@ def save_font(mergelist, path, newname):
     correctly, since _doneWriting must not run twice -- and the pure-python
     serializer is handed a graph laid out for a packer that just gave up.
     Measured on Sans Historical, GSUB: the conservative layout converges in
-    95 overflow-resolution rounds, the harfbuzz layout was still spinning
-    after 123.
+    95 overflow-resolution rounds, while the harfbuzz layout exhausts every
+    resolution available to it after 219 rounds without ever packing.
 
     So on failure we discard everything and re-merge from scratch with the
     repacker disabled, which recompiles under the conservative dedup policy
