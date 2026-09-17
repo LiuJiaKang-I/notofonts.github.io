@@ -10,8 +10,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     # megamerge.yaml has no timeout, which is why the livelock burned 6h a
-    # month. Fail fast here instead.
-    timeout-minutes: 45
+    # month. This run covers all four merge groups plus two controls, so it
+    # needs room -- but it still fails fast rather than running for hours.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +43,7 @@ jobs:
 
       - name: Verify both megamerge fixes
         env:
-          # Keep the harfbuzz budget well under the job timeout so a livelock
-          # falls back instead of burning the whole run.
+          # Last-resort guard only: on failure save_font recompiles from
+          # scratch immediately, so this budget is rarely what triggers it.
           MEGAMERGE_HB_BUDGET: "300"
         run: cd megamerge && python3 -u verify_upem_fix.py
