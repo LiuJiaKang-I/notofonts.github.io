@@ -878,8 +878,18 @@
   "families_count": 5,
   "gh_url": "https://notofonts.github.io/arabic",
   "has_releases": true,
-  "issue_count": 25,
+  "issue_count": 27,
   "issues": [
+   {
+    "number": 296,
+    "title": "Bug",
+    "url": "https://github.com/notofonts/arabic/issues/296"
+   },
+   {
+    "number": 295,
+    "title": "Bug report",
+    "url": "https://github.com/notofonts/arabic/issues/295"
+   },
    {
     "number": 291,
     "title": "[Request] Add Saudi Riyal Sign (\u20c1, U+20C1), UAE Dirham Sign (\u20c3, U+20C3) and Omani Rial Sign (\u20c4, U+20C4) to Noto Sans Arabic and Noto Kufi Arabic",
@@ -13893,22 +13903,20 @@
    "Noto Sans Mongolian": {
     "files": {
      "full": [
-      "fonts/NotoSansMongolian/full/otf/NotoSansMongolian-Regular.otf",
       "fonts/NotoSansMongolian/full/ttf/NotoSansMongolian-Regular.ttf"
      ],
      "hinted": [
       "fonts/NotoSansMongolian/hinted/ttf/NotoSansMongolian-Regular.ttf"
      ],
      "unhinted": [
-      "fonts/NotoSansMongolian/unhinted/otf/NotoSansMongolian-Regular.otf",
       "fonts/NotoSansMongolian/unhinted/ttf/NotoSansMongolian-Regular.ttf"
      ]
     },
     "latest_release": {
-     "notes": "Noto Sans Mongolian v3.002\n\nThis release updates the shaping rules to meet the published standard (UTN#57).\n",
-     "published": "2024-07-24T17:01:39+00:00",
-     "url": "https://github.com/notofonts/mongolian/releases/tag/NotoSansMongolian-v3.002",
-     "version": "v3.002"
+     "notes": "Noto Sans Mongolian v3.100\n\nThis is a major update to Noto Sans Mongolian to support the newly\nrevised Chinese national standard for Todo, Sibe and Manchu. Many thanks\nto Kushim Jiang for this work.\n",
+     "published": "2026-10-01T13:49:54+00:00",
+     "url": "https://github.com/notofonts/mongolian/releases/tag/NotoSansMongolian-v3.100",
+     "version": "v3.100"
     },
     "third_party_versions": {
      "Android 12": {
