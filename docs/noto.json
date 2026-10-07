@@ -1951,6 +1951,11 @@
   "gh_url": "https://notofonts.github.io/bengali",
   "issues": [
    {
+    "number": 40,
+    "title": "Use number values for per-master abvm code",
+    "url": "https://github.com/notofonts/bengali/pull/40"
+   },
+   {
     "number": 39,
     "title": "Some LGC glyphs are thinner than they should be",
     "url": "https://github.com/notofonts/bengali/issues/39"
@@ -3156,6 +3161,11 @@
   },
   "gh_url": "https://notofonts.github.io/devanagari",
   "issues": [
+   {
+    "number": 72,
+    "title": "Use number values for per-master UI positioning rules",
+    "url": "https://github.com/notofonts/devanagari/pull/72"
+   },
    {
     "number": 70,
     "title": "The rendering for the Hindi text - \u091f\u094d\u0935\u093f\u0938\u094d\u091f - seems incorrect",
