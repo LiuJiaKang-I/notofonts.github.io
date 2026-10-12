@@ -6,9 +6,10 @@
   "4": 3,
   "5": 3,
   "6": 4,
-  "7": 4,
+  "7": 3,
   "8": 8,
-  "9": 6
+  "9": 6,
+  "10": 6
  },
  "open_per_repo": {
   "adlam": 4,
@@ -50,10 +51,10 @@
   "kharoshthi": 1,
   "khitan-small-script": 1,
   "khmer": 4,
-  "khojki": 1,
+  "khojki": 2,
   "khudawadi": 1,
   "lao": 2,
-  "latin-greek-cyrillic": 158,
+  "latin-greek-cyrillic": 160,
   "limbu": 2,
   "malayalam": 6,
   "mandaic": 2,
@@ -67,8 +68,8 @@
   "music": 1,
   "myanmar": 33,
   "nag-mundari": 1,
-  "nandinagari": 5,
-  "nastaliq": 31,
+  "nandinagari": 6,
+  "nastaliq": 32,
   "nko": 1,
   "nushu": 1,
   "old-hungarian": 7,
@@ -108,16 +109,15 @@
   "tifinagh": 3,
   "tirhuta": 10,
   "vai": 1,
-  "vithkuqi": 1,
   "yi": 2,
   "znamenny": 3
  },
  "open_per_tier": {
-  "1": 292,
+  "1": 295,
   "2": 59,
-  "3": 153,
-  "4": 62,
-  "5": 37
+  "3": 154,
+  "4": 61,
+  "5": 38
  },
  "opened_per_month": {
   "1": 10,
@@ -126,9 +126,10 @@
   "4": 14,
   "5": 8,
   "6": 10,
-  "7": 10,
+  "7": 9,
   "8": 11,
-  "9": 4
+  "9": 6,
+  "10": 9
  },
  "releases_per_month": {
   "1": [
@@ -479,6 +480,14 @@
     "url": "https://github.com/notofonts/arabic/releases/tag/NotoKufiArabic-v2.110"
    },
    {
+    "tag": "NotoSansMongolian-v3.100",
+    "url": "https://github.com/notofonts/mongolian/releases/tag/NotoSansMongolian-v3.100"
+   },
+   {
+    "tag": "NotoMusic-v2.004",
+    "url": "https://github.com/notofonts/music/releases/tag/NotoMusic-v2.004"
+   },
+   {
     "tag": "NotoSansNandinagari-v1.003",
     "url": "https://github.com/notofonts/nandinagari/releases/tag/NotoSansNandinagari-v1.003"
    },
@@ -521,6 +530,7 @@
   "6": 589,
   "7": 595,
   "8": 601,
-  "9": 605
+  "9": 605,
+  "10": 604
  }
 }
