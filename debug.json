@@ -21548,13 +21548,8 @@
   "families_count": 1,
   "gh_url": "https://notofonts.github.io/tibetan",
   "has_releases": true,
-  "issue_count": 6,
+  "issue_count": 5,
   "issues": [
-   {
-    "number": 47,
-    "title": "Tool for printing Tibetan texts",
-    "url": "https://github.com/notofonts/tibetan/issues/47"
-   },
    {
     "number": 46,
     "title": "Misaligned  0xFC6 symbol (tibetan symbol padma gdan)",
