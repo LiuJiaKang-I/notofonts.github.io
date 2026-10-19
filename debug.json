@@ -11149,8 +11149,13 @@
   "families_count": 4,
   "gh_url": "https://notofonts.github.io/latin-greek-cyrillic",
   "has_releases": true,
-  "issue_count": 163,
+  "issue_count": 164,
   "issues": [
+   {
+    "number": 578,
+    "title": "Letters iotated yat' (\ua652) and blended yus (\ua65a) do not have proper diacritic positioning anchors",
+    "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/578"
+   },
    {
     "number": 577,
     "title": "\"Build main TTFs\" failed",
