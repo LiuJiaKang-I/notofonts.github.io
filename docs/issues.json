@@ -9,7 +9,8 @@
   "7": 3,
   "8": 8,
   "9": 6,
-  "10": 6
+  "10": 14,
+  "11": 0
  },
  "open_per_repo": {
   "adlam": 4,
@@ -54,7 +55,7 @@
   "khojki": 2,
   "khudawadi": 1,
   "lao": 2,
-  "latin-greek-cyrillic": 160,
+  "latin-greek-cyrillic": 161,
   "limbu": 2,
   "malayalam": 6,
   "mandaic": 2,
@@ -69,7 +70,7 @@
   "myanmar": 33,
   "nag-mundari": 1,
   "nandinagari": 6,
-  "nastaliq": 32,
+  "nastaliq": 31,
   "nko": 1,
   "nushu": 1,
   "old-hungarian": 7,
@@ -129,7 +130,8 @@
   "7": 9,
   "8": 11,
   "9": 6,
-  "10": 9
+  "10": 16,
+  "11": 0
  },
  "releases_per_month": {
   "1": [
@@ -480,6 +482,10 @@
     "url": "https://github.com/notofonts/arabic/releases/tag/NotoKufiArabic-v2.110"
    },
    {
+    "tag": "NotoSansMongolian-v3.103",
+    "url": "https://github.com/notofonts/mongolian/releases/tag/NotoSansMongolian-v3.103"
+   },
+   {
     "tag": "NotoSansMongolian-v3.100",
     "url": "https://github.com/notofonts/mongolian/releases/tag/NotoSansMongolian-v3.100"
    },
@@ -498,6 +504,10 @@
    {
     "tag": "NotoSansSyriacWestern-v3.001",
     "url": "https://github.com/notofonts/syriac/releases/tag/NotoSansSyriacWestern-v3.001"
+   },
+   {
+    "tag": "v0.005",
+    "url": "https://github.com/notofonts/noto-cjk-varco/releases/tag/v0.005"
    }
   ],
   "11": [
@@ -531,6 +541,7 @@
   "7": 595,
   "8": 601,
   "9": 605,
-  "10": 604
+  "10": 604,
+  "11": 607
  }
 }

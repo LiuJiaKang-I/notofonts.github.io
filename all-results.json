@@ -833,6 +833,13 @@
   "url": "https://github.com/notofonts/bengali/issues/39"
  },
  {
+  "closedAt": "2026-10-16T20:34:39Z",
+  "createdAt": "2026-10-16T18:58:40Z",
+  "repo": "bengali",
+  "tier": 1,
+  "url": "https://github.com/notofonts/bengali/issues/41"
+ },
+ {
   "closedAt": null,
   "createdAt": "2018-11-11T17:38:48Z",
   "repo": "bhaiksuki",
@@ -3962,11 +3969,39 @@
   "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/576"
  },
  {
-  "closedAt": null,
+  "closedAt": "2026-10-24T15:48:14Z",
   "createdAt": "2026-10-08T02:11:15Z",
   "repo": "latin-greek-cyrillic",
   "tier": 1,
   "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/577"
+ },
+ {
+  "closedAt": "2026-10-21T08:15:06Z",
+  "createdAt": "2026-10-19T03:10:57Z",
+  "repo": "latin-greek-cyrillic",
+  "tier": 1,
+  "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/578"
+ },
+ {
+  "closedAt": "2026-10-22T18:00:59Z",
+  "createdAt": "2026-10-22T14:50:20Z",
+  "repo": "latin-greek-cyrillic",
+  "tier": 1,
+  "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/579"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-10-22T15:45:34Z",
+  "repo": "latin-greek-cyrillic",
+  "tier": 1,
+  "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/580"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-10-31T23:41:47Z",
+  "repo": "latin-greek-cyrillic",
+  "tier": 1,
+  "url": "https://github.com/notofonts/latin-greek-cyrillic/issues/582"
  },
  {
   "closedAt": null,
@@ -4613,11 +4648,18 @@
   "url": "https://github.com/notofonts/mongolian/issues/46"
  },
  {
-  "closedAt": null,
+  "closedAt": "2026-10-13T07:17:55Z",
   "createdAt": "2026-10-07T10:03:07Z",
   "repo": "mongolian",
   "tier": 3,
   "url": "https://github.com/notofonts/mongolian/issues/49"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-10-27T16:47:32Z",
+  "repo": "mongolian",
+  "tier": 3,
+  "url": "https://github.com/notofonts/mongolian/issues/51"
  },
  {
   "closedAt": "2024-08-15T12:36:05Z",
@@ -5292,7 +5334,7 @@
   "url": "https://github.com/notofonts/nastaliq/issues/101"
  },
  {
-  "closedAt": null,
+  "closedAt": "2026-10-20T12:25:44Z",
   "createdAt": "2026-08-15T09:28:27Z",
   "repo": "nastaliq",
   "tier": 1,
@@ -5633,6 +5675,13 @@
   "repo": "runic",
   "tier": 4,
   "url": "https://github.com/notofonts/runic/issues/3"
+ },
+ {
+  "closedAt": "2026-10-27T13:59:32Z",
+  "createdAt": "2026-10-27T13:55:42Z",
+  "repo": "runic",
+  "tier": 4,
+  "url": "https://github.com/notofonts/runic/issues/4"
  },
  {
   "closedAt": null,
@@ -6396,6 +6445,13 @@
   "repo": "tibetan",
   "tier": 3,
   "url": "https://github.com/notofonts/tibetan/issues/46"
+ },
+ {
+  "closedAt": "2026-10-15T06:44:48Z",
+  "createdAt": "2026-10-15T05:52:14Z",
+  "repo": "tibetan",
+  "tier": 3,
+  "url": "https://github.com/notofonts/tibetan/issues/47"
  },
  {
   "closedAt": null,
